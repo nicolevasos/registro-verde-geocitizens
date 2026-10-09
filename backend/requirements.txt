@@ -1,0 +1,6 @@
+fastapi==0.116.1
+uvicorn[standard]==0.35.0
+httpx==0.28.1
+shapely==2.1.1
+psycopg[binary]>=3.3.4,<4
+python-dotenv>=1.0,<2
