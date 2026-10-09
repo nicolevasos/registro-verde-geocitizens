@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GeoCitizens · Session Analytics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+:root{--forest:#0D3D2A;--canopy:#1A5C3E;--leaf:#2E8B57;--mist:#E8F5EE;--cloud:#F7F9F8;--fog:#D4E4DA;--stone:#70837a;--ink:#111816;--amber:#E8832A;--alert:#C84B2F}
+*{box-sizing:border-box}body{margin:0;font-family:Sora,sans-serif;background:var(--cloud);color:var(--ink)}
+header{background:var(--forest);color:white;padding:22px 28px;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}.brand{display:flex;align-items:center;gap:12px}.brand-icon{width:42px;height:42px;border-radius:12px;background:#4DB87A;display:grid;place-items:center}.brand h1{font-size:20px;margin:0}.brand p{margin:3px 0 0;color:#a9d7bd;font-size:12px}.links{display:flex;gap:8px}.links a{color:white;text-decoration:none;border:1px solid #ffffff44;border-radius:10px;padding:8px 12px;font-size:12px}.links a:hover{background:#ffffff15}
+main{max-width:1440px;margin:auto;padding:22px}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap}.toolbar p{color:var(--stone);font-size:13px;margin:0}.toolbar button{border:0;border-radius:10px;background:var(--forest);color:#fff;padding:10px 14px;font:600 12px Sora;cursor:pointer}
+.metrics{display:grid;grid-template-columns:repeat(7,minmax(130px,1fr));gap:12px;margin-bottom:18px}.metric{background:white;border:1px solid var(--fog);border-radius:14px;padding:15px}.metric-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--stone)}.metric-value{font-size:25px;font-weight:700;margin-top:7px}.metric-sub{font-size:10px;color:var(--stone);margin-top:4px}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}.panel{background:white;border:1px solid var(--fog);border-radius:16px;padding:17px;min-width:0}.panel h2{font-size:14px;margin:0 0 4px}.panel .sub{font-size:11px;color:var(--stone);margin-bottom:14px}.span-4{grid-column:span 4}.span-6{grid-column:span 6}.span-8{grid-column:span 8}.span-12{grid-column:span 12}.chart-wrap{height:270px}.chart-wrap.short{height:220px}
+table{width:100%;border-collapse:collapse;font-size:11px}th{text-align:left;color:var(--stone);font-size:9px;text-transform:uppercase;letter-spacing:.06em;padding:9px;border-bottom:1px solid var(--fog)}td{padding:9px;border-bottom:1px solid #edf2ef;vertical-align:top}tr:hover{background:#f6faf7}.mono{font-family:'JetBrains Mono',monospace}.badge{display:inline-block;background:var(--mist);color:var(--canopy);padding:3px 8px;border-radius:10px;font-size:9px;font-weight:600}.badge.active{background:#fff3e0;color:#b35c13}.scroll{overflow:auto;max-height:430px}.empty{padding:28px;text-align:center;color:var(--stone);font-size:12px}.event-filter{display:flex;gap:8px;margin-bottom:10px}.event-filter select,.event-filter input{border:1px solid var(--fog);border-radius:9px;padding:8px 10px;font:11px Sora;background:white}.event-filter input{flex:1}.payload{max-width:360px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--stone)}
+@media(max-width:1000px){.metrics{grid-template-columns:repeat(3,1fr)}.span-4,.span-6,.span-8{grid-column:span 12}}@media(max-width:620px){main{padding:14px}.metrics{grid-template-columns:repeat(2,1fr)}header{padding:18px}.chart-wrap{height:220px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><div class="brand-icon">📊</div><div><h1>Session Analytics</h1><p>GeoCitizens user-study monitoring and evidence dashboard</p></div></div>
+  <div class="links"><a href="/">Open app</a><a href="/debug">Developer map</a><a href="/docs">API docs</a></div>
+</header>
+<main>
+  <div class="toolbar"><p id="status">Loading study data…</p><button id="refresh">Refresh analytics</button></div>
+  <section class="metrics">
+    <div class="metric"><div class="metric-label">Sessions</div><div class="metric-value" id="m-sessions">—</div><div class="metric-sub" id="m-session-sub"></div></div>
+    <div class="metric"><div class="metric-label">Parcels opened</div><div class="metric-value" id="m-opened">—</div><div class="metric-sub">Across all sessions</div></div>
+    <div class="metric"><div class="metric-label">Completed validations</div><div class="metric-value" id="m-decisions">—</div><div class="metric-sub">Accept or reject actions</div></div>
+    <div class="metric"><div class="metric-label">Median task time</div><div class="metric-value" id="m-time">—</div><div class="metric-sub">Validation workflow</div></div>
+    <div class="metric"><div class="metric-label">Recommended repair rate</div><div class="metric-value" id="m-recommended">—</div><div class="metric-sub">Rank-1 candidate selected</div></div>
+    <div class="metric"><div class="metric-label">Manual edits</div><div class="metric-value" id="m-edits">—</div><div class="metric-sub">Committed vertex edits</div></div>
+      <div class="metric"><div class="metric-label">Questionnaires</div><div class="metric-value" id="m-questionnaires">—</div><div class="metric-sub" id="m-sus">Post-study responses</div></div>
+  </section>
+  <section class="grid">
+    <article class="panel span-8"><h2>Learned evidence weights</h2><div class="sub">Weight values after each structured farmer decision.</div><div class="chart-wrap"><canvas id="weight-chart"></canvas></div></article>
+    <article class="panel span-4"><h2>Validation decisions</h2><div class="sub">Final farmer labels in the active-learning queue.</div><div class="chart-wrap"><canvas id="decision-chart"></canvas></div></article>
+    <article class="panel span-4"><h2>Repair interaction</h2><div class="sub">How farmers respond to ranked geometry alternatives.</div><div class="chart-wrap short"><canvas id="repair-chart"></canvas></div></article>
+    <article class="panel span-4"><h2>Most penalising evidence</h2><div class="sub">Layer that contributed the lowest available evidence score.</div><div class="chart-wrap short"><canvas id="weakest-chart"></canvas></div></article>
+    <article class="panel span-4"><h2>Correction categories</h2><div class="sub">Structured correction labels selected during review.</div><div class="chart-wrap short"><canvas id="correction-chart"></canvas></div></article>
+    <article class="panel span-12"><h2>Participant sessions</h2><div class="sub">Anonymous session IDs can be linked to study participants through the participant query parameter.</div><div class="scroll"><table><thead><tr><th>Participant</th><th>Condition</th><th>Started</th><th>Duration</th><th>Status</th><th>Events</th><th>Decisions</th><th>Edits</th><th>Study progress</th><th>Session UUID</th></tr></thead><tbody id="sessions-body"></tbody></table></div></article>
+    <article class="panel span-12"><h2>Event stream</h2><div class="sub">Raw interaction events for audit, export and detailed behavioural analysis.</div><div class="event-filter"><select id="event-type"><option value="">All event types</option></select><input id="event-search" placeholder="Search plot, participant-independent session event, or payload"><button id="download" style="border:0;border-radius:9px;background:var(--forest);color:white;padding:8px 12px;cursor:pointer">Export JSON</button></div><div class="scroll"><table><thead><tr><th>Time</th><th>Event</th><th>Plot</th><th>Elapsed</th><th>Session</th><th>Payload</th></tr></thead><tbody id="events-body"></tbody></table></div></article>
+  </section>
+</main>
+<script>
+let charts=[], allEvents=[];
+const fmtTime=s=>s?new Date(s*1000).toLocaleString():'—';
+const fmtDuration=s=>{s=Math.round(s||0);if(s<60)return `${s}s`;const m=Math.floor(s/60),r=s%60;return `${m}m ${r}s`;};
+const escapeHtml=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+function destroyCharts(){charts.forEach(c=>c.destroy());charts=[];}
+function makeChart(id,type,labels,datasets,options={}){const c=new Chart(document.getElementById(id),{type,data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{family:'Sora',size:10}}}},scales:type==='doughnut'?{}:{y:{beginAtZero:true,grid:{color:'#edf2ef'}},x:{grid:{display:false}}},...options}});charts.push(c);}
+function objectSeries(obj){return {labels:Object.keys(obj||{}),values:Object.values(obj||{})};}
+async function load(){
+  document.getElementById('status').textContent='Refreshing…';
+  try{
+    const [summaryRes,sessionsRes,eventsRes,questionRes]=await Promise.all([fetch('/api/analytics/summary'),fetch('/api/analytics/sessions'),fetch('/api/analytics/events?limit=5000'),fetch('/api/analytics/questionnaires?limit=5000')]);
+    if(!summaryRes.ok||!sessionsRes.ok||!eventsRes.ok||!questionRes.ok)throw new Error('Analytics API returned an error');
+    const summary=await summaryRes.json(), sessions=await sessionsRes.json(), events=await eventsRes.json(), questionnaires=await questionRes.json();
+    allEvents=events.items||[]; renderSummary(summary,questionnaires.items||[]);renderSessions(sessions.items||[]);renderEvents();
+    document.getElementById('status').textContent=`Updated ${new Date().toLocaleTimeString()} · database-backed analytics`;
+  }catch(e){document.getElementById('status').textContent=`Could not load analytics: ${e.message}`;}
+}
+function renderSummary(s,questionnaires=[]){
+  document.getElementById('m-sessions').textContent=s.sessions.total;
+  document.getElementById('m-session-sub').textContent=`${s.sessions.completed} completed · ${s.sessions.active} active`;
+  document.getElementById('m-opened').textContent=s.tasks.parcels_opened;
+  document.getElementById('m-decisions').textContent=s.tasks.decisions;
+  document.getElementById('m-time').textContent=fmtDuration((s.tasks.median_task_time_ms||0)/1000);
+  document.getElementById('m-recommended').textContent=`${Math.round((s.repair.recommended_rate||0)*100)}%`;
+  document.getElementById('m-edits').textContent=s.tasks.manual_edits;
+  document.getElementById('m-questionnaires').textContent=questionnaires.length;
+  const sus=questionnaires.map(q=>Number(q.responses?.sus_score)).filter(Number.isFinite);document.getElementById('m-sus').textContent=sus.length?`Mean SUS ${Math.round(sus.reduce((a,b)=>a+b,0)/sus.length)}`:'Post-study responses';
+  destroyCharts();
+  const wh=s.weight_history||[];
+  makeChart('weight-chart','line',wh.map((_,i)=>`Decision ${i+1}`),[
+    {label:'A2 Coverage',data:wh.map(x=>x.a2),borderColor:'#2E8B57',backgroundColor:'#2E8B57',tension:.25},
+    {label:'A3 Cadastre',data:wh.map(x=>x.a3),borderColor:'#E8832A',backgroundColor:'#E8832A',tension:.25},
+    {label:'A4 Slope',data:wh.map(x=>x.a4),borderColor:'#5C6BC0',backgroundColor:'#5C6BC0',tension:.25}
+  ],{scales:{y:{beginAtZero:true,suggestedMax:.5},x:{grid:{display:false}}}});
+  const d=objectSeries(s.farmer_decisions);makeChart('decision-chart','doughnut',d.labels,[{label:'Decisions',data:d.values}]);
+  const r=objectSeries(s.repair.decisions);makeChart('repair-chart','bar',r.labels,[{label:'Count',data:r.values,backgroundColor:'#2E8B57'}]);
+  const w=objectSeries(s.penalising_layers);makeChart('weakest-chart','bar',w.labels.map(x=>x.toUpperCase()),[{label:'Count',data:w.values,backgroundColor:'#E8832A'}]);
+  const c=objectSeries(s.correction_types);makeChart('correction-chart','bar',c.labels,[{label:'Count',data:c.values,backgroundColor:'#1A5C3E'}]);
+}
+function renderSessions(items){const body=document.getElementById('sessions-body');body.innerHTML=items.length?items.map(x=>{const completed=x.completion_status==='completed'||Number(x.questionnaire_count)>0;const progress=completed?'Complete':x.completion_status==='left_page'?'Left before completion':'In progress';return `<tr><td><strong>${escapeHtml(x.participant_code)}</strong></td><td>${escapeHtml(x.study_condition)}</td><td>${fmtTime(x.started_at)}</td><td>${fmtDuration(x.duration_seconds)}</td><td><span class="badge ${x.completion_status==='active'?'active':''}">${escapeHtml(x.completion_status)}</span></td><td>${x.event_count}</td><td>${x.decision_count}</td><td>${x.edit_count}</td><td>${progress}</td><td class="mono">${escapeHtml(x.session_uuid.slice(0,12))}…</td></tr>`;}).join(''):'<tr><td colspan="10" class="empty">No study sessions have been recorded yet.</td></tr>';}
+function renderEvents(){const type=document.getElementById('event-type').value,term=document.getElementById('event-search').value.toLowerCase();const filtered=allEvents.filter(x=>(!type||x.event_type===type)&&(!term||JSON.stringify(x).toLowerCase().includes(term)));document.getElementById('events-body').innerHTML=filtered.length?filtered.map(x=>`<tr><td>${fmtTime(x.created_at)}</td><td><span class="badge">${escapeHtml(x.event_type)}</span></td><td>${escapeHtml(x.plot_name||'—')}</td><td>${x.elapsed_ms==null?'—':fmtDuration(x.elapsed_ms/1000)}</td><td class="mono">${escapeHtml(x.session_uuid.slice(0,8))}</td><td class="payload" title="${escapeHtml(JSON.stringify(x.payload))}">${escapeHtml(JSON.stringify(x.payload))}</td></tr>`).join(''):'<tr><td colspan="6" class="empty">No matching events.</td></tr>';const select=document.getElementById('event-type');if(select.options.length===1){[...new Set(allEvents.map(x=>x.event_type))].sort().forEach(t=>select.add(new Option(t,t)));}}
+document.getElementById('refresh').addEventListener('click',load);document.getElementById('event-type').addEventListener('change',renderEvents);document.getElementById('event-search').addEventListener('input',renderEvents);document.getElementById('download').addEventListener('click',()=>{const blob=new Blob([JSON.stringify(allEvents,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`geocitizens-study-events-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);});load();
+</script>
+</body>
+</html>

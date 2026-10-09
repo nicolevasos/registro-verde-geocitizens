@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: geocitizens-user-testing
+    runtime: docker
+    plan: free
+
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+
+    autoDeploy: true
+    healthCheckPath: /health
+
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: geocitizens-testing-db
+          property: connectionString
+
+      - key: WHISP_API_KEY
+        sync: false
+
+      - key: PYTHONUNBUFFERED
+        value: "1"
+
+      - key: ACTIVE_LEARNING_ALPHA
+        value: "0.15"
+
+databases:
+  - name: geocitizens-testing-db
+    plan: free
+    databaseName: geocitizens_testing
+    user: geocitizens

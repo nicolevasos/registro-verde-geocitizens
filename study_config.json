@@ -1,0 +1,49 @@
+{
+  "study_title": "GeoCitizens parcel-validation study",
+  "study_subtitle": "Evaluate parcel repair, evidence interpretation and EUDR workflow",
+  "contact": "Research team",
+  "estimated_minutes": 20,
+  "consent_points": [
+    "Participation is voluntary and you may stop at any time.",
+    "The study records anonymous interaction events, task times and questionnaire responses.",
+    "Do not enter names, addresses or other directly identifying personal information.",
+    "Uploaded study geometries and decisions are stored for research analysis."
+  ],
+  "tasks": [
+    {
+      "id": "orientation",
+      "title": "Explore a parcel",
+      "instruction": "Open one parcel from Parcelas and inspect the map and validation information.",
+      "completion_event": "plot_opened"
+    },
+    {
+      "id": "validation",
+      "title": "Make a validation decision",
+      "instruction": "Review the evidence and confirm or reject the parcel boundary.",
+      "completion_event": "validation_decision"
+    },
+    {
+      "id": "activity",
+      "title": "Review the activity queue",
+      "instruction": "Open Actividad and inspect the least-confident item in the review queue.",
+      "completion_event": "tab_opened",
+      "completion_match": {
+        "tab": "activity"
+      }
+    },
+    {
+      "id": "whisp",
+      "title": "Run the EUDR check",
+      "instruction": "Confirm a parcel and complete its WHISP analysis.",
+      "completion_event": "whisp_completed"
+    }
+  ],
+  "conditions": {
+    "single_candidate": {
+      "condition_label": "Single repair candidate"
+    },
+    "multi_candidate": {
+      "condition_label": "Multiple repair candidates"
+    }
+  }
+}

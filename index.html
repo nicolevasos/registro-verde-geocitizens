@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Registro Verde</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div class="phone">
+  <button id="study-badge" class="study-badge" hidden type="button">Study</button>
+  <div class="status-bar">
+    <span class="time" id="clock">9:41</span>
+    <div class="icons"><span>▲▲▲</span><span>WiFi</span><span>🔋</span></div>
+  </div>
+  <div class="top-bar">
+    <div class="logo-row">
+      <div class="brand">
+        <div class="brand-icon">🌿</div>
+        <div>
+          <div class="brand-name">Registro Verde</div>
+          <div class="brand-sub">EUDR · Quindío</div>
+        </div>
+      </div>
+      <div class="avatar" onclick="showToast('Perfil de Nicole Salazar')">NS</div>
+    </div>
+  </div>
+
+  <div class="offline-banner" id="offline-banner">📵 Sin conexión — usando datos guardados localmente</div>
+  <div class="save-pill" id="save-pill"><div class="save-dot" id="save-dot"></div><span id="save-label">Sin guardar</span></div>
+  <div class="screens">
+
+    <!-- SCREEN 1: PLOTS -->
+    <div class="screen active" id="s-plots">
+      <div class="screen-header">
+        <div class="screen-title">Mis parcelas</div>
+        <div class="screen-sub">Armenia, Quindío · temporada 2024</div>
+      </div>
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-num stat-gray" id="stat-total">4</div><div class="stat-label">Total</div></div>
+        <div class="stat-card"><div class="stat-num stat-green" id="stat-valid">2</div><div class="stat-label">Validadas</div></div>
+        <div class="stat-card"><div class="stat-num stat-amber" id="stat-pending">2</div><div class="stat-label">Pendientes</div></div>
+      </div>
+      <div class="section-label">Lista de parcelas</div>
+      <div id="plot-list"></div>
+      <div class="plots-actions plots-bottom">
+        <button class="upload-btn" onclick="document.getElementById('file-upload').click()">
+          <span>📂</span> Cargar Parcela(s)
+        </button>
+        <button class="clear-btn" onclick="confirmClearAll()">
+          <span>🗑️</span> Eliminar todo
+        </button>
+        <input type="file" id="file-upload" multiple accept=".geojson,.json,.zip,.shp,.dbf,.prj,.cpg,.gpkg,.fgb,.csv,text/csv,application/geo+json,application/geopackage+sqlite3" onchange="handleFileUpload(event)">
+      </div>
+      <div style="padding:2px 20px 12px;font-size:10px;color:var(--stone);line-height:1.45">Formatos aceptados: GeoJSON, Shapefile (.zip o archivos .shp/.dbf/.prj), GeoPackage, FlatGeobuf y CSV con geometría WKT/GeoJSON o columnas de coordenadas.</div>
+    </div>
+
+    <!-- SCREEN 2: VERIFY -->
+    <div class="screen" id="s-verify">
+      <div class="screen-header" style="padding-bottom:12px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <button onclick="goBack()" style="background:var(--fog);border:none;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px">← Volver</button>
+          <div>
+            <div class="screen-title" id="verify-name" style="font-size:18px">Parcela norte</div>
+            <div class="screen-sub" id="verify-meta">15.1 ha · Armenia · café</div>
+          </div>
+        </div>
+      </div>
+<div class="map-container">
+  <div id="leaflet-map"></div>
+
+  <div
+    class="map-badge confidence-badge"
+    id="confidence-badge"
+    tabindex="0"
+    aria-describedby="confidence-tooltip"
+  >
+    <div
+      class="map-dot"
+      id="map-dot"
+      style="background:var(--leaf)"
+    ></div>
+
+    <span id="map-tier-label">Confianza alta</span>
+  </div>
+
+  <div
+    id="confidence-tooltip"
+    class="confidence-tooltip"
+    role="tooltip"
+  >
+    La confianza combina la cobertura del cultivo, la coincidencia
+    catastral y la pendiente del terreno. Una confianza alta indica
+    que estas evidencias son consistentes entre sí.
+  </div>
+
+  <button
+    class="edit-toggle"
+    id="edit-toggle-btn"
+    data-edit-vertices
+  >
+    ✏️ Editar vértices
+  </button>
+
+  <div class="map-hint" id="map-hint">
+    Imagen satelital · Esri World Imagery
+  </div>
+</div>
+      <!-- PLAIN LANGUAGE CARD -->
+      <div class="plain-card" id="plain-card">
+        <div class="plain-verdict" id="plain-verdict">✅ Tu parcela se ve bien</div>
+        <div class="plain-message" id="plain-message">
+          El límite coincide con lo que muestran los mapas de uso de suelo y el terreno.
+        </div>
+        <div class="plain-action" id="plain-action">
+          💡 Puedes confirmar el límite y enviarlo para revisión EUDR.
+        </div>
+        <button class="details-toggle" type="button" aria-expanded="false" aria-controls="technical-details" onclick="toggleTechnicalDetails()">
+          Ver indicadores técnicos ▾
+        </button>
+      </div>
+      <div class="technical-details" id="technical-details">
+      <div class="score-card" id="score-card">
+        <div class="score-header">
+          <div class="score-title" id="sc-name">Parcela norte</div>
+          <span class="badge high" id="sc-badge">Alta</span>
+        </div>
+        <div class="conf-track"><div class="conf-fill" id="conf-fill" style="width:78%;background:var(--leaf)"></div></div>
+        <div class="conf-labels">
+          <span>C = <strong id="conf-val" style="font-family:'JetBrains Mono',monospace">0.78</strong></span>
+          <span>IC 90%: <span id="conf-ci" style="font-family:'JetBrains Mono',monospace">[0.67, 0.86]</span></span>
+        </div>
+        <div class="layer-row">
+          <span class="layer-icon">🗺️</span><span class="layer-name">A2 — Cobertura (MapBiomas)</span>
+          <div class="layer-bar-bg"><div class="layer-bar-fill" id="a2-bar" style="width:74%;background:var(--leaf)"></div></div>
+          <span class="layer-val" id="a2-val">0.74</span>
+        </div>
+        <div class="layer-row">
+          <span class="layer-icon">📋</span><span class="layer-name">A3 — IoU catastral IGAC</span>
+          <div class="layer-bar-bg"><div class="layer-bar-fill" id="a3-bar" style="width:30%;background:#ccc"></div></div>
+          <span class="layer-val" id="a3-val" style="color:var(--stone)">N/D</span>
+        </div>
+        <div class="layer-row">
+          <span class="layer-icon">⛰️</span><span class="layer-name">A4 — Pendiente SRTM</span>
+          <div class="layer-bar-bg"><div class="layer-bar-fill" id="a4-bar" style="width:82%;background:var(--leaf)"></div></div>
+          <span class="layer-val" id="a4-val">0.82</span>
+        </div>
+      </div>
+      <div class="geo-card" id="geo-card">
+        <div style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:12px">✓ Verificación geométrica</div>
+        <div class="geo-grid">
+          <div class="geo-item"><div class="geo-label">Área</div><div class="geo-val" id="geo-area">15.1 ha</div></div>
+          <div class="geo-item"><div class="geo-label">Compacidad PP</div><div class="geo-val" id="geo-compact">0.568</div></div>
+          <div class="geo-item"><div class="geo-label">Vértices</div><div class="geo-val" id="geo-verts">14</div></div>
+          <div class="geo-item"><div class="geo-label">Topología</div><div class="geo-val" id="geo-topology" style="color:var(--leaf)">Válida ✓</div></div>
+        </div>
+        <div id="verdict-note" style="font-size:12px;color:var(--stone);margin-top:12px;line-height:1.5"></div>
+      </div>
+      </div>
+      <div class="action-area">
+        <button class="btn-primary" id="btn-accept" onclick="handleAccept()"><span>✓</span> Confirmar límite</button>
+        <div class="btn-row">
+          <button class="btn-secondary" type="button" data-edit-vertices>✏️ Ajustar vértices</button>
+          <button class="btn-danger" onclick="handleReject()">✕ Rechazar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 3: EUDR -->
+    <div class="screen" id="s-eudr">
+      <div class="screen-header">
+        <div class="screen-title">Estado EUDR</div>
+        <div class="screen-sub">Temporada cafetara 2024</div>
+      </div>
+      <div class="compliance-hero">
+        <div class="hero-label">Parcelas conformes</div>
+        <div class="hero-count" id="eudr-count">2 / 4</div>
+        <div class="hero-sub">listas para exportación a la UE</div>
+        <div class="hero-date"><span>📅</span><span>Fecha de corte EUDR: 31 dic 2020</span></div>
+      </div>
+      <div class="compliance-list" id="compliance-list"></div>
+      <div style="padding:0 16px 4px;font-size:11px;color:var(--stone);line-height:1.5">
+        <strong>A3 — IoU catastral:</strong> consultado mediante el backend desde la capa ArcGIS R_TERRENO del IGAC.
+        N/D = no se encontró una coincidencia catastral; OFF = servicio temporalmente no disponible. Ninguno penaliza el puntaje.
+        Si ves la parcela en el mapa pero A3 = N/D, el polígono catastral puede estar en
+        una capa distinta o con código predial diferente al buscado.
+      </div>
+      <button class="whisp-btn" onclick="exportAllEUDR()">📥 Exportar informe EUDR completo</button>
+    </div>
+
+    <!-- SCREEN 4: ACTIVITY + ACTIVE-LEARNING QUEUE -->
+    <div class="screen" id="s-activity">
+      <div class="screen-header">
+        <div class="screen-title">Actividad</div>
+        <div class="screen-sub">Historial y revisión activa del agricultor</div>
+      </div>
+      <div class="queue-summary">
+        <div><strong id="queue-count">0</strong><span> pendientes de revisión</span></div>
+        <div id="queue-weights" class="queue-weights">A2 — · A3 — · A4 —</div>
+      </div>
+      <div class="section-label" style="padding-top:12px">Cola activa · menor confianza primero</div>
+      <div id="farmer-queue-list" class="farmer-queue-list"></div>
+      <div class="section-label" style="padding-top:14px">Historial reciente</div>
+      <div class="activity-list" id="activity-list">
+        <div class="activity-item">
+          <div class="activity-dot-col"><div class="activity-dot" style="background:var(--leaf)"></div><div class="activity-line"></div></div>
+          <div class="activity-content"><div class="activity-title">Parcela norte — límite confirmado</div><div class="activity-meta">Hace 2 horas · C = 0.78</div><span class="activity-tag tag-confirm">Confirmado</span><span class="activity-tag tag-whisp" style="margin-left:4px">→ WHISP</span></div>
+        </div>
+        <div class="activity-item">
+          <div class="activity-dot-col"><div class="activity-dot" style="background:var(--amber)"></div><div class="activity-line"></div></div>
+          <div class="activity-content"><div class="activity-title">Lote central — marcado para revisión</div><div class="activity-meta">Hace 5 horas · A2 = 0.41</div><span class="activity-tag tag-edit">Borde débil</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 5: WHISP RESULTS -->
+    <div class="screen" id="s-whisp">
+      <div class="screen-header">
+        <div class="screen-title">Análisis WHISP</div>
+        <div class="screen-sub" id="whisp-screen-sub">Resultados de riesgo por deforestación</div>
+      </div>
+      <div class="mode-selector">
+        <button class="mode-btn active" id="mode-mock" onclick="setWhispMode('mock')">Demo (sin red)</button>
+        <button class="mode-btn" id="mode-proxy" onclick="setWhispMode('proxy')">Proxy CORS</button>
+        <button class="mode-btn" id="mode-local" onclick="setWhispMode('local')">Servidor local</button>
+        <button class="mode-btn" id="mode-api" onclick="setWhispMode('api')"> AWS · Producción</button>
+      </div>
+      <div id="whisp-content">
+        <div class="whisp-empty">
+          <div class="we-icon">🛰️</div>
+          <div class="we-label">Sin análisis aún</div>
+          <div class="we-sub">Confirma una parcela desde la pantalla Verificar para enviarla a WHISP automáticamente.</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /screens -->
+
+  <div class="bottom-nav">
+    <div class="nav-item active" id="nav-plots" onclick="switchTab('plots')"><div class="nav-icon">🗂️</div><div class="nav-label">Parcelas</div></div>
+    <div class="nav-item" id="nav-verify" onclick="switchTab('verify')"><div class="nav-icon">🔍</div><div class="nav-label">Verificar</div></div>
+    <div class="nav-item" id="nav-eudr" onclick="switchTab('eudr')"><div class="nav-icon">🛡️</div><div class="nav-label">EUDR</div></div>
+    <div class="nav-item" id="nav-activity" onclick="switchTab('activity')"><div class="nav-icon">📋</div><div class="nav-label">Actividad</div></div>
+    <div class="nav-item" id="nav-whisp" onclick="switchTab('whisp')"><div class="nav-icon">🛰️</div><div class="nav-label">WHISP</div></div>
+  </div>
+
+  <!-- ════════════════════════════════════════
+       STAGE 1 REPAIR REVIEW MODAL
+  ════════════════════════════════════════ -->
+  <div class="repair-overlay" id="repair-overlay">
+    <div class="repair-sheet">
+      <div class="repair-drag"></div>
+
+      <div class="repair-header">
+        <div class="repair-title">⚠️ Reparación de geometría</div>
+        <div class="repair-subtitle" id="repair-subtitle">
+          Se detectaron errores topológicos. Compara las alternativas y elige la que mejor representa tu parcela.
+        </div>
+      </div>
+
+      <!-- Error pills -->
+      <div class="error-strip" id="error-strip"></div>
+
+      <!-- Before / After mini maps -->
+      <div class="repair-maps">
+        <div class="repair-map-wrap">
+          <div class="repair-map-label">Original</div>
+          <div id="repair-map-before"></div>
+        </div>
+        <div class="repair-map-wrap">
+          <div class="repair-map-label good">✓ Reparada</div>
+          <div id="repair-map-after"></div>
+        </div>
+      </div>
+
+      <!-- Repair candidate scores -->
+      <div class="repair-scores">
+        <div class="rs-row" style="background:#FAFAFA">
+          <div class="rs-icon" style="font-size:11px;font-weight:700;color:var(--stone);width:auto;margin-right:2px">MÉTRICA</div>
+          <div class="rs-name" style="font-size:11px;font-weight:700;color:var(--stone)">Indicador</div>
+          <div style="font-size:10px;font-weight:700;color:var(--stone);width:60px;text-align:right;flex-shrink:0">Original</div>
+          <div style="width:10px;flex-shrink:0"></div>
+          <div style="font-size:10px;font-weight:700;color:var(--canopy);width:60px;text-align:right;flex-shrink:0">Reparada</div>
+          <div style="width:44px;flex-shrink:0"></div>
+        </div>
+        <div class="rs-row">
+          <div class="rs-icon">✅</div>
+          <div class="rs-name">Topología válida (V)</div>
+          <div style="font-size:12px;font-weight:600;color:var(--alert);width:60px;text-align:right;flex-shrink:0;font-family:'JetBrains Mono',monospace" id="rs-v-orig">0.00</div>
+          <div style="font-size:12px;color:var(--stone);width:10px;text-align:center;flex-shrink:0">→</div>
+          <div style="font-size:12px;font-weight:600;color:var(--leaf);width:60px;text-align:right;flex-shrink:0;font-family:'JetBrains Mono',monospace" id="rs-v-rep">1.00</div>
+          <div class="rs-delta pos" id="rs-v-delta">+1.00</div>
+        </div>
+        <div class="rs-row">
+          <div class="rs-icon">📐</div>
+          <div class="rs-name">Preservación de área (APS)</div>
+          <div style="font-size:12px;font-weight:600;color:var(--stone);width:60px;text-align:right;flex-shrink:0;font-family:'JetBrains Mono',monospace">1.00</div>
+          <div style="font-size:12px;color:var(--stone);width:10px;text-align:center;flex-shrink:0">→</div>
+          <div style="font-size:12px;font-weight:600;color:var(--ink);width:60px;text-align:right;flex-shrink:0;font-family:'JetBrains Mono',monospace" id="rs-aps">—</div>
+          <div class="rs-delta neu" id="rs-aps-delta">—</div>
+        </div>
+        <div class="rs-row">
+          <div class="rs-icon">🔷</div>
+          <div class="rs-name">Consistencia de forma (SCS)</div>
+          <div style="font-size:12px;font-weight:600;color:var(--stone);width:60px;text-align:right;flex-shrink:0;font-family:'JetBrains Mono',monospace" id="rs-scs-orig">—</div>
+          <div style="font-size:12px;color:var(--stone);width:10px;text-align:center;flex-shrink:0">→</div>
+          <div style="font-size:12px;font-weight:600;color:var(--ink);width:60px;text-align:right;flex-shrink:0;font-family:'JetBrains Mono',monospace" id="rs-scs-rep">—</div>
+          <div class="rs-delta" id="rs-scs-delta">—</div>
+        </div>
+        <div class="rs-row" style="background:var(--mist)">
+          <div class="rs-icon">⭐</div>
+          <div class="rs-name" style="font-weight:700;color:var(--canopy)">Puntuación total</div>
+          <div style="font-size:12px;font-weight:700;color:var(--alert);width:60px;text-align:right;flex-shrink:0;font-family:'JetBrains Mono',monospace" id="rs-total-orig">—</div>
+          <div style="font-size:12px;color:var(--stone);width:10px;text-align:center;flex-shrink:0">→</div>
+          <div style="font-size:12px;font-weight:700;color:var(--canopy);width:60px;text-align:right;flex-shrink:0;font-family:'JetBrains Mono',monospace" id="rs-total-rep">—</div>
+          <div class="rs-delta pos" id="rs-total-delta">—</div>
+        </div>
+      </div>
+
+      <!-- Candidate selector -->
+      <div class="repair-candidates">
+        <div class="repair-cand-title">Opciones de reparación · selecciona una para comparar</div>
+        <div id="repair-cand-list"></div>
+      </div>
+
+      <!-- Actions -->
+      <div class="repair-actions">
+        <button class="repair-btn-accept" onclick="acceptRepair(false)">✓ Usar opción seleccionada</button>
+        <button class="repair-btn-edit" onclick="acceptRepair(true)">✏️ Usar y ajustar</button>
+        <button class="repair-btn-reject" onclick="rejectRepair()">Ninguna · redibujar</button>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="study-shell" class="study-shell" aria-live="polite">
+    <section class="study-card">
+      <div class="study-topline"><div><h2 id="study-title">GeoCitizens study</h2><div id="study-subtitle" class="study-muted"></div></div><button id="study-minimize" class="study-icon-btn" type="button">—</button></div>
+      <div id="study-consent-panel" class="study-panel" hidden>
+        <h3>Before you begin</h3><ul id="study-consent-list"></ul>
+        <label class="study-consent-row"><input id="study-consent-check" type="checkbox"><span>I have read the information above and voluntarily agree to participate.</span></label>
+        <div id="study-consent-note" class="study-muted"></div>
+        <div class="study-actions"><button id="study-decline-btn" class="study-secondary" type="button">Decline</button><button id="study-consent-btn" class="study-primary" type="button">Agree and begin</button></div>
+      </div>
+      <div id="study-task-panel" class="study-panel" hidden>
+        <div class="study-progress"><div id="study-progress-fill" style="width:0"></div></div>
+        <div class="study-task-box"><div id="study-task-index" class="study-task-index"></div><h3 id="study-task-title"></h3><p id="study-task-instruction" class="study-muted"></p><div id="study-task-status" class="study-status"></div></div>
+        <div class="study-actions"><button id="study-next-task" class="study-primary" type="button" disabled>Continue</button></div>
+      </div>
+      <div id="study-questionnaire-panel" class="study-panel study-questionnaire-panel" hidden>
+        <div class="study-questionnaire-header">
+          <h3>Final questionnaire</h3>
+          <p class="study-muted">Please answer every numbered item. Your responses are stored with your anonymous participant code.</p>
+        </div>
+        <form id="study-questionnaire-form" class="study-questionnaire-form" novalidate>
+          <div class="study-questionnaire-scroll">
+            <div id="study-questionnaire-fields"></div>
+            <div id="study-questionnaire-error" class="study-error"></div>
+          </div>
+          <div class="study-actions study-questionnaire-actions">
+            <button class="study-primary" type="submit">Submit and finish</button>
+          </div>
+        </form>
+      </div>
+      <div id="study-finish-panel" class="study-panel" hidden><h3>Thank you</h3><p class="study-muted">Your session has been completed and the research responses have been saved. You may now close this page.</p></div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div><!-- /phone -->
+
+
+  <!-- Feature modules load first; app.js contains state and starts the application last. -->
+  <script defer src="js/geometry.js"></script>
+  <script defer src="js/map.js"></script>
+  <script defer src="js/validation.js"></script>
+  <script defer src="js/whisp.js"></script>
+  <script defer src="js/study-mode.js"></script>
+  <script defer src="js/app.js"></script>
+</body>
+</html>

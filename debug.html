@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GeoCitizens Developer Dashboard</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <style>
+    :root{--forest:#0d3d2a;--canopy:#1a5c3e;--leaf:#2e8b57;--amber:#e8832a;--red:#c84b2f;--cloud:#f7f9f8;--fog:#d4e4da;--stone:#718279;--ink:#111816}
+    *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--cloud);color:var(--ink)}
+    header{background:var(--forest);color:white;padding:18px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+    h1{font-size:21px;margin:0}.sub{font-size:12px;color:#9ee0b8;margin-top:3px}.actions{display:flex;gap:8px}
+    button,a.btn{border:0;border-radius:9px;padding:9px 13px;font:inherit;font-size:13px;font-weight:650;cursor:pointer;text-decoration:none}.primary{background:#4db87a;color:#073522}.secondary{background:white;color:var(--forest)}
+    main{padding:18px;max-width:1500px;margin:auto}.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}.metric{background:white;border:1px solid var(--fog);border-radius:12px;padding:13px}.metric label{display:block;color:var(--stone);font-size:11px;text-transform:uppercase;letter-spacing:.05em}.metric strong{font-size:24px;display:block;margin-top:4px}
+    .layout{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(350px,.85fr);gap:14px}.panel{background:white;border:1px solid var(--fog);border-radius:14px;overflow:hidden}.panel-head{padding:13px 15px;border-bottom:1px solid var(--fog);display:flex;justify-content:space-between;align-items:center;gap:10px}.panel-head h2{font-size:15px;margin:0}.muted{font-size:12px;color:var(--stone)}
+    #map{height:580px;background:#e6eee9}.legend{padding:10px 14px;display:flex;gap:16px;flex-wrap:wrap;font-size:12px}.swatch{display:inline-block;width:18px;height:4px;vertical-align:middle;margin-right:5px}.source{background:var(--amber)}.cadastre{background:var(--leaf)}
+    .controls{display:flex;gap:8px;flex-wrap:wrap}.controls input,.controls select{border:1px solid var(--fog);border-radius:8px;padding:7px 9px;font:inherit;font-size:12px;max-width:180px}
+    .list{max-height:650px;overflow:auto}.row{padding:12px 14px;border-bottom:1px solid #edf2ef;cursor:pointer}.row:hover,.row.active{background:#edf8f1}.row-title{display:flex;justify-content:space-between;gap:8px;font-weight:650;font-size:13px}.row-meta{font-size:11px;color:var(--stone);margin-top:4px;line-height:1.5}.badge{display:inline-block;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:700}.success{background:#e8f5ee;color:#166534}.not_found{background:#fff3e0;color:#a34b00}.unavailable,.invalid_cache_record{background:#ffebee;color:#a93226}
+    .details{margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:14px}.table-wrap{overflow:auto;max-height:340px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #edf2ef;vertical-align:top}th{position:sticky;top:0;background:#f7faf8;color:var(--stone)}code{font-size:11px;word-break:break-all}.empty{padding:30px;text-align:center;color:var(--stone)}
+    @media(max-width:950px){.layout{grid-template-columns:1fr}#map{height:430px}.details{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<header>
+  <div><h1>🌿 GeoCitizens Developer Dashboard</h1><div class="sub">SQLite cache, IGAC geometry, queue, weights and repair-learning diagnostics</div></div>
+  <div class="actions"><button class="primary" id="refresh">Refresh data</button><a class="btn secondary" href="/analytics" style="margin-right:8px">Session analytics</a><a href="/">Open GeoCitizens</a></div>
+</header>
+<main>
+  <section class="metrics" id="metrics"></section>
+  <section class="layout">
+    <div class="panel">
+      <div class="panel-head"><div><h2>Cached cadastral geometry</h2><div class="muted" id="selection-label">Select a cache record</div></div><div class="controls"><select id="status-filter"><option value="">All statuses</option><option value="success">Success</option><option value="not_found">Not found</option><option value="unavailable">Unavailable</option></select><input id="search" placeholder="Search parcel or key"></div></div>
+      <div id="map"></div>
+      <div class="legend"><span><span class="swatch source"></span>Submitted parcel</span><span><span class="swatch cadastre"></span>IGAC cadastral match</span></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><div><h2>Cache records</h2><div class="muted" id="record-count">Loading…</div></div></div>
+      <div class="list" id="records"></div>
+    </div>
+  </section>
+  <section class="details">
+    <div class="panel"><div class="panel-head"><h2>Selected record details</h2></div><div id="record-detail" class="empty">No record selected.</div></div>
+    <div class="panel"><div class="panel-head"><h2>Active-learning state</h2></div><div class="table-wrap"><table><thead><tr><th>Layer / strategy</th><th>Value</th><th>Selections</th><th>Edited</th></tr></thead><tbody id="learning-table"></tbody></table></div></div>
+  </section>
+</main>
+<script>
+let map, sourceLayer, cadastreLayer, allItems=[], selectedKey=null;
+const esc=v=>String(v??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtTime=ts=>ts?new Date(ts*1000).toLocaleString():'—';
+async function getJSON(url){const r=await fetch(url);if(!r.ok)throw new Error(`${r.status} ${r.statusText}`);return r.json()}
+function initMap(){map=L.map('map',{zoomControl:true}).setView([4.53,-75.68],10);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map)}
+function statusBadge(status){return `<span class="badge ${esc(status)}">${esc(status||'unknown')}</span>`}
+function renderMetrics(summary,cache){const c=summary.counts||{};const data=[['Cache records',cache.count],['Pending queue',c.review_queue||0],['Farmer labels',c.farmer_labels||0],['Repair submissions',c.repair_submissions||0],['Repair labels',c.repair_labels||0]];document.getElementById('metrics').innerHTML=data.map(([l,v])=>`<div class="metric"><label>${esc(l)}</label><strong>${esc(v)}</strong></div>`).join('')}
+function renderLearning(summary){const rows=[];Object.entries(summary.weights||{}).forEach(([k,v])=>rows.push(`<tr><td><strong>${esc(k.toUpperCase())}</strong><div class="muted">Evidence weight · α ${esc(summary.alpha)}</div></td><td>${Number(v).toFixed(4)}</td><td>—</td><td>—</td></tr>`));(summary.repair_strategy_stats||[]).forEach(s=>rows.push(`<tr><td><strong>${esc(s.strategy_id)}</strong><div class="muted">Repair strategy</div></td><td>${esc(s.recommended_wins)} recommended wins</td><td>${esc(s.selections)}</td><td>${esc(s.edited_selections)}</td></tr>`));document.getElementById('learning-table').innerHTML=rows.join('')||'<tr><td colspan="4">No learning records yet.</td></tr>'}
+function filteredItems(){const st=document.getElementById('status-filter').value;const q=document.getElementById('search').value.trim().toLowerCase();return allItems.filter(i=>(!st||i.status===st)&&(!q||(i.plot_name||'').toLowerCase().includes(q)||i.cache_key.toLowerCase().includes(q)))}
+function renderRecords(){const items=filteredItems();document.getElementById('record-count').textContent=`${items.length} record${items.length===1?'':'s'}`;document.getElementById('records').innerHTML=items.length?items.map(i=>`<div class="row ${selectedKey===i.cache_key?'active':''}" data-key="${esc(i.cache_key)}"><div class="row-title"><span>${esc(i.plot_name||'Unlinked cache entry')}</span>${statusBadge(i.status)}</div><div class="row-meta">IoU: ${i.iou==null?'—':Number(i.iou).toFixed(4)} · candidates: ${esc(i.candidate_count)}<br>${esc(fmtTime(i.created_at))}</div></div>`).join(''):'<div class="empty">No records match the filter.</div>';document.querySelectorAll('.row[data-key]').forEach(el=>el.addEventListener('click',()=>selectItem(el.dataset.key)))}
+function clearLayers(){if(sourceLayer){map.removeLayer(sourceLayer);sourceLayer=null}if(cadastreLayer){map.removeLayer(cadastreLayer);cadastreLayer=null}}
+function selectItem(key){const i=allItems.find(x=>x.cache_key===key);if(!i)return;selectedKey=key;renderRecords();clearLayers();const bounds=[];if(i.source_feature){sourceLayer=L.geoJSON(i.source_feature,{style:{color:'#e8832a',weight:3,dashArray:'7 5',fillColor:'#e8832a',fillOpacity:.14}}).addTo(map);bounds.push(sourceLayer.getBounds())}if(i.cadastre_feature){cadastreLayer=L.geoJSON(i.cadastre_feature,{style:{color:'#2e8b57',weight:3,fillColor:'#2e8b57',fillOpacity:.18}}).addTo(map);bounds.push(cadastreLayer.getBounds())}if(bounds.length){let b=bounds[0];for(let n=1;n<bounds.length;n++)b.extend(bounds[n]);map.fitBounds(b,{padding:[30,30]})}document.getElementById('selection-label').textContent=i.plot_name||i.geometry_hash.slice(0,12);const props=Object.entries(i.best_match_properties||{}).slice(0,25).map(([k,v])=>`<tr><th>${esc(k)}</th><td>${esc(typeof v==='object'?JSON.stringify(v):v)}</td></tr>`).join('');document.getElementById('record-detail').className='table-wrap';document.getElementById('record-detail').innerHTML=`<table><tbody><tr><th>Status</th><td>${statusBadge(i.status)}</td></tr><tr><th>IoU</th><td>${i.iou==null?'—':Number(i.iou).toFixed(6)}</td></tr><tr><th>Plot</th><td>${esc(i.plot_name)}</td></tr><tr><th>Composite</th><td>${i.composite_score==null?'—':Number(i.composite_score).toFixed(4)}</td></tr><tr><th>Source area</th><td>${esc(i.source_area_ha_approx)} ha</td></tr><tr><th>Cadastre area</th><td>${esc(i.cadastre_area_ha_approx)} ha</td></tr><tr><th>Created</th><td>${esc(fmtTime(i.created_at))}</td></tr><tr><th>Queue status</th><td>${esc(i.queue_status)}</td></tr><tr><th>Cache key</th><td><code>${esc(i.cache_key)}</code></td></tr>${props}</tbody></table>`}
+async function load(){try{const [summary,cache]=await Promise.all([getJSON('/api/debug/summary'),getJSON('/api/debug/cadastre-cache')]);allItems=cache.items||[];renderMetrics(summary,cache);renderLearning(summary);renderRecords();if(allItems.length)selectItem(allItems[0].cache_key)}catch(e){document.getElementById('records').innerHTML=`<div class="empty">Could not load debug data: ${esc(e.message)}</div>`}}
+window.addEventListener('DOMContentLoaded',()=>{initMap();load();document.getElementById('refresh').addEventListener('click',load);document.getElementById('status-filter').addEventListener('change',renderRecords);document.getElementById('search').addEventListener('input',renderRecords)});
+</script>
+</body>
+</html>
